@@ -57,6 +57,86 @@ class BaseTestSubtitles(unittest.TestCase):
         return {l: sub_info['data'] for l, sub_info in subtitles.items()}
 
 
+class TestProcessSubtitles(unittest.TestCase):
+    def setUp(self):
+        self.ydl = FakeYDL()
+        self.video_id = 'test_video_id'
+    
+    def test_process_subtitles_normal(self):
+        # Teste quando há legendas normais e writesubtitles=True
+        self.ydl.params['writesubtitles'] = True
+        normal_subs = {'en': [{'url': 'http://example.com/en.vtt', 'ext': 'vtt'}], 
+                      'fr': [{'url': 'http://example.com/fr.vtt', 'ext': 'vtt'}]}
+        auto_subs = None
+        
+        result = self.ydl.process_subtitles(self.video_id, normal_subs, auto_subs)
+        
+        self.assertIsNotNone(result)
+        self.assertEqual(set(result.keys()), {'en', 'fr'})
+        for lang in result:
+            self.assertEqual(result[lang]['ext'], 'vtt')
+    
+    def test_process_subtitles_automatic(self):
+        # Teste quando há legendas automáticas e writeautomaticsub=True
+        self.ydl.params['writeautomaticsub'] = True
+        normal_subs = None
+        auto_subs = {'en': [{'url': 'http://example.com/auto_en.vtt', 'ext': 'vtt'}]}
+        
+        result = self.ydl.process_subtitles(self.video_id, normal_subs, auto_subs)
+        
+        self.assertIsNotNone(result)
+        self.assertEqual(set(result.keys()), {'en'})
+        self.assertEqual(result['en']['ext'], 'vtt')
+    
+    def test_process_subtitles_none_available(self):
+        # Teste quando não há legendas disponíveis
+        self.ydl.params['writesubtitles'] = True
+        self.ydl.params['writeautomaticsub'] = True
+        
+        result = self.ydl.process_subtitles(self.video_id, None, None)
+        
+        self.assertIsNone(result)
+    
+    def test_process_subtitles_disabled(self):
+        # Teste quando há legendas disponíveis mas ambos writesubtitles e writeautomaticsub são False
+        self.ydl.params['writesubtitles'] = False
+        self.ydl.params['writeautomaticsub'] = False
+        normal_subs = {'en': [{'url': 'http://example.com/en.vtt', 'ext': 'vtt'}]}
+        auto_subs = {'fr': [{'url': 'http://example.com/auto_fr.vtt', 'ext': 'vtt'}]}
+        
+        result = self.ydl.process_subtitles(self.video_id, normal_subs, auto_subs)
+        
+        self.assertIsNone(result)
+    
+    def test_process_subtitles_format_selection(self):
+        # Teste da seleção de formato de legendas
+        self.ydl.params['writesubtitles'] = True
+        self.ydl.params['subtitlesformat'] = 'srt/vtt'
+        
+        normal_subs = {'en': [
+            {'url': 'http://example.com/en.vtt', 'ext': 'vtt'},
+            {'url': 'http://example.com/en.srt', 'ext': 'srt'}
+        ]}
+        
+        result = self.ydl.process_subtitles(self.video_id, normal_subs, None)
+        
+        self.assertEqual(result['en']['ext'], 'srt')
+    
+    def test_process_subtitles_all_languages(self):
+        # Teste quando allsubtitles=True
+        self.ydl.params['writesubtitles'] = True
+        self.ydl.params['allsubtitles'] = True
+        
+        normal_subs = {
+            'en': [{'url': 'http://example.com/en.vtt', 'ext': 'vtt'}],
+            'fr': [{'url': 'http://example.com/fr.vtt', 'ext': 'vtt'}],
+            'es': [{'url': 'http://example.com/es.vtt', 'ext': 'vtt'}]
+        }
+        
+        result = self.ydl.process_subtitles(self.video_id, normal_subs, None)
+        
+        self.assertEqual(set(result.keys()), {'en', 'fr', 'es'})
+
 @is_download_test
 class TestYoutubeSubtitles(BaseTestSubtitles):
     # Available subtitles for QRS8MkLhQmM:
